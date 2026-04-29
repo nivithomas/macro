@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { supabase, now, type DbAnalysis } from '@/lib/supabase'
 import { identifyIndicators, analyzeStockImpact, estimateIndicatorDirections, classifyScenarioType, type IndicatorDirection } from '@/lib/claude'
 import { getCompanyProfile, getHistoricalPrices } from '@/lib/yahoo-finance'
 import { computeCorrelation, computeImpactScore } from '@/lib/correlation'
@@ -10,8 +10,10 @@ export const maxDuration = 300
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
-  const analysis = await prisma.analysis.findUnique({ where: { id } })
-  if (!analysis) return Response.json({ error: 'Not found' }, { status: 404 })
+  const { data, error } = await supabase.from('analysis').select('*').eq('id', id).single()
+  if (error || !data) return Response.json({ error: 'Not found' }, { status: 404 })
+  const analysis = data as DbAnalysis
+
   if (analysis.status === 'complete' || analysis.status === 'error') {
     const encoder = new TextEncoder()
     const stream = new ReadableStream({
@@ -29,7 +31,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     return new Response(stream, { headers: sseHeaders() })
   }
 
-  const stockUniverse = JSON.parse(analysis.stockUniverse) as StockInfo[]
+  const stockUniverse = JSON.parse(analysis.stock_universe) as StockInfo[]
   const duration = analysis.duration ?? '1-3 months'
   const encoder = new TextEncoder()
   const accumulatedResults: StockResult[] = []
@@ -41,22 +43,22 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       }
 
       try {
-        await prisma.analysis.update({ where: { id }, data: { status: 'running' } })
+        await supabase.from('analysis').update({ status: 'running', updated_at: now() }).eq('id', id)
 
         // Step 1: Classify scenario + identify indicators
         send({ type: 'step', message: 'Identifying relevant market indicators…', step: 1, total: 4 })
-        const scenarioMeta = await classifyScenarioType(analysis.macroTrend).catch(() => ({
+        const scenarioMeta = await classifyScenarioType(analysis.macro_trend).catch(() => ({
           scenarioType: 'other' as const,
           quantReliable: false,
           quantWarning: 'Scenario classification failed — treat scores as indicative only.',
         }))
         let indicators: Indicator[] = []
         try {
-          indicators = await identifyIndicators(analysis.macroTrend)
+          indicators = await identifyIndicators(analysis.macro_trend)
         } catch {
           indicators = []
         }
-        await prisma.analysis.update({ where: { id }, data: { indicators: JSON.stringify(indicators) } })
+        await supabase.from('analysis').update({ indicators: JSON.stringify(indicators), updated_at: now() }).eq('id', id)
         send({ type: 'indicators', indicators })
 
         // Step 2: Fetch indicator price history
@@ -77,7 +79,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
         send({ type: 'step', message: 'Estimating indicator directions…', step: 3, total: 4 })
         let directions: Record<string, IndicatorDirection> = {}
         try {
-          directions = await estimateIndicatorDirections(analysis.macroTrend, indicators)
+          directions = await estimateIndicatorDirections(analysis.macro_trend, indicators)
         } catch {
           directions = {}
         }
@@ -92,7 +94,6 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
               getHistoricalPrices(stock.ticker),
             ])
 
-            // Compute base correlations (log returns, normalized chart data)
             const baseCorrelations = indicators.map((ind) => {
               const indPrices = indicatorPrices.get(ind.ticker) ?? []
               const corr = computeCorrelation(stockPrices, indPrices, ind.ticker, ind.name)
@@ -104,28 +105,23 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
               }
             })
 
-            // Weak-link detection: flag if max |r| across all indicators is below threshold
             const maxAbsR = baseCorrelations.reduce((m, c) => Math.max(m, Math.abs(c.correlation)), 0)
             const weakCausalLink = maxAbsR < 0.15
 
-            // Claude analysis: returns indicator classifications + mismatch flags + narrative
-            // Streams reasoning text back as thinking events so the UI can show live progress
             const stockAnalysis = await analyzeStockImpact(
-              analysis.macroTrend,
+              analysis.macro_trend,
               duration,
               profile,
               baseCorrelations,
               (ticker, snippet) => send({ type: 'thinking', ticker, snippet }),
             )
 
-            // Enrich correlations with classifications and mismatch warnings from Claude
             const correlations = baseCorrelations.map((c) => ({
               ...c,
               indicatorClassification: stockAnalysis.indicatorClassifications[c.indicatorTicker],
               correlationMismatchWarning: stockAnalysis.demandDrivenInSupplyShock[c.indicatorTicker] ?? false,
             }))
 
-            // Compute weighted impact score using enriched correlations
             const scoreOrNull = computeImpactScore(correlations)
             const impactScore = scoreOrNull ?? 0
 
@@ -156,10 +152,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
             accumulatedResults.push(result)
             send({ type: 'result', result })
 
-            await prisma.analysis.update({
-              where: { id },
-              data: { results: JSON.stringify(accumulatedResults) },
-            })
+            await supabase
+              .from('analysis')
+              .update({ results: JSON.stringify(accumulatedResults), updated_at: now() })
+              .eq('id', id)
           } catch (err) {
             const message = err instanceof Error ? err.message : 'Unknown error'
             const result: StockResult = {
@@ -182,11 +178,14 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
           }
         }
 
-        await prisma.analysis.update({ where: { id }, data: { status: 'complete' } })
+        await supabase.from('analysis').update({ status: 'complete', updated_at: now() }).eq('id', id)
         send({ type: 'complete' })
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error'
-        await prisma.analysis.update({ where: { id }, data: { status: 'error', errorMessage: message } })
+        await supabase
+          .from('analysis')
+          .update({ status: 'error', error_message: message, updated_at: now() })
+          .eq('id', id)
         send({ type: 'error', message })
       } finally {
         controller.close()
