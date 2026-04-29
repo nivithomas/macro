@@ -131,16 +131,9 @@ export function ImpactCard({ result, threshold = 0.2 }: ImpactCardProps) {
                 <span className="text-xs text-zinc-400">corr × direction · not investment advice</span>
               </>
             ) : (
-              <details className="text-right">
-                <summary className="text-xs text-amber-500 italic cursor-pointer list-none flex items-center gap-1 justify-end select-none">
-                  Qualitative assessment only
-                  <span className="text-amber-500/60 not-italic font-normal">ⓘ</span>
-                </summary>
-                <p className="mt-1.5 text-xs text-amber-300/80 leading-relaxed max-w-[260px]">
-                  {result.quantWarning}
-                  {' '}This does not mean the data is missing or unreliable — it means this type of scenario affects stock prices through mechanisms that weekly return correlations do not capture well.
-                </p>
-              </details>
+              <span className="inline-flex items-center gap-1.5 bg-zinc-100 text-zinc-600 text-[11px] px-2 py-0.5 rounded">
+                Qualitative · {result.confidence === 'high' ? 'High' : result.confidence === 'medium' ? 'Medium' : 'Low'} confidence
+              </span>
             )}
           </div>
         </div>
@@ -153,9 +146,12 @@ export function ImpactCard({ result, threshold = 0.2 }: ImpactCardProps) {
 
       {/* Quant warning callout */}
       {!result.quantReliable && result.quantWarning && (
-        <div className="mx-5 mb-3 rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3">
-          <p className="text-xs font-medium text-amber-400 uppercase tracking-wider mb-1">Why no quant score?</p>
-          <p className="text-sm text-amber-300/80 leading-relaxed">{result.quantWarning}</p>
+        <div className="mx-5 mb-3 rounded-lg bg-stone-50 border border-stone-200 px-3 py-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="font-mono text-[10px] text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-100">Note</span>
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-zinc-600">Why no quant score?</p>
+          </div>
+          <p className="text-sm text-zinc-700 leading-relaxed">{result.quantWarning}</p>
         </div>
       )}
 
@@ -212,7 +208,16 @@ export function ImpactCard({ result, threshold = 0.2 }: ImpactCardProps) {
       {/* Hedge book note */}
       {result.hedgeBookNote && (
         <div className="border-t border-zinc-100 mx-5 my-3 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3">
-          <p className="text-xs font-medium text-blue-700 uppercase tracking-wider mb-1">Hedge Book</p>
+          <p className="text-xs font-medium text-blue-700 uppercase tracking-wider mb-0.5">Hedge Book</p>
+          <p className="text-xs text-blue-400 italic mb-2">
+            {result.hedgeBookExposureType === 'fx'
+              ? 'Shown because this stock has material foreign exchange exposure.'
+              : result.hedgeBookExposureType === 'rates'
+              ? 'Shown because this stock has material interest rate exposure.'
+              : result.hedgeBookExposureType === 'energy'
+              ? 'Shown because this stock has material energy input cost exposure.'
+              : 'Shown because this stock has direct commodity input cost exposure.'}
+          </p>
           <p className="text-sm text-blue-700 leading-relaxed">{result.hedgeBookNote}</p>
         </div>
       )}

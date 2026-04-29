@@ -85,11 +85,12 @@ export function PortfolioSummary({ results, threshold = 0.2 }: PortfolioSummaryP
   return (
     <div className="space-y-3">
       {!quantReliable && (
-        <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3 flex items-start gap-2.5">
-          <span className="text-amber-400 text-base shrink-0 leading-none mt-0.5">⚠</span>
-          <p className="text-sm text-amber-300/90 leading-relaxed">
-            Quant scores are not reliable for this scenario type. See individual stock assessments below for the qualitative analysis.
-          </p>
+        <div className="rounded-lg bg-stone-50 border border-stone-200 px-4 py-3 flex items-start gap-2.5">
+          <span className="w-5 h-5 rounded-full bg-stone-200 text-stone-600 text-xs flex items-center justify-center shrink-0 mt-0.5 leading-none">ⓘ</span>
+          <div>
+            <p className="text-sm font-medium text-zinc-700">Quant scores are not reliable for this scenario type.</p>
+            <p className="text-sm text-zinc-600 mt-0.5">See individual stock assessments below for the qualitative analysis.</p>
+          </div>
         </div>
       )}
       <div className={`rounded-xl border border-zinc-200 overflow-hidden shadow-sm${!quantReliable ? ' opacity-40 pointer-events-none select-none' : ''}`}>

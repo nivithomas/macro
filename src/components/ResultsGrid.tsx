@@ -46,13 +46,14 @@ export function ResultsGrid({ results }: ResultsGridProps) {
   return (
     <div className="space-y-4">
       {allQualitative && (
-        <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3">
-          <p className="text-sm font-medium text-amber-400">
-            This scenario type relies on qualitative analysis — historical return correlations are not a reliable signal here.
-          </p>
-          {sharedQuantWarning && (
-            <p className="text-sm text-amber-300/70 mt-1">{sharedQuantWarning}</p>
-          )}
+        <div className="rounded-lg bg-stone-50 border border-stone-200 px-4 py-3 flex items-start gap-2.5">
+          <span className="w-5 h-5 rounded-full bg-stone-200 text-stone-600 text-xs flex items-center justify-center shrink-0 mt-0.5 leading-none">ⓘ</span>
+          <div>
+            <p className="text-sm font-medium text-zinc-700">This scenario type relies on qualitative analysis — historical return correlations are not a reliable signal here.</p>
+            {sharedQuantWarning && (
+              <p className="text-sm text-zinc-600 mt-0.5">{sharedQuantWarning}</p>
+            )}
+          </div>
         </div>
       )}
       <div className="rounded-xl border border-gray-200 overflow-hidden">

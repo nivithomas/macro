@@ -48,7 +48,8 @@ export interface StockResult {
   overallReasoning: string
   timeHorizon?: string         // "1 month" | "1 quarter" | "1 year"
   historicalAnalog?: string    // specific historical comparable event
-  hedgeBookNote?: string       // hedge book status for commodity-exposed sectors
+  hedgeBookNote?: string       // hedge book status for commodity/FX/rates/energy-exposed companies
+  hedgeBookExposureType?: 'commodity' | 'fx' | 'rates' | 'energy' | null
   epsSensitivity?: string      // EPS impact of 10% move in relevant commodity
   weakCausalLink?: boolean     // true if max |r| < 0.15 across all indicators
   quantReliable: boolean       // false for input_cost_shock, demand_shock, geopolitical, other

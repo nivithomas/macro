@@ -139,7 +139,7 @@ export function NarrativeBrief({ macroTrend, brief }: NarrativeBriefProps) {
       </Card>
 
       {/* Confidence + caveats strip */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <Card className="p-3 flex items-center gap-3">
           <div className="w-9 h-9 rounded-md bg-emerald-500/15 flex items-center justify-center shrink-0">
             <span className="font-mono font-bold text-emerald-400 text-sm">{pct}%</span>
@@ -158,15 +158,6 @@ export function NarrativeBrief({ macroTrend, brief }: NarrativeBriefProps) {
           <div className="min-w-0">
             <div className="text-xs font-medium text-zinc-200">Tail risk</div>
             <div className="text-[11px] text-zinc-500 leading-snug line-clamp-2">{brief.tailRisk}</div>
-          </div>
-        </Card>
-        <Card className="p-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-md bg-zinc-800 flex items-center justify-center shrink-0">
-            <span className="text-zinc-400 text-sm font-mono font-bold">i</span>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-zinc-200">Not advice</div>
-            <div className="text-[11px] text-zinc-500">Patterns ≠ prediction</div>
           </div>
         </Card>
       </div>

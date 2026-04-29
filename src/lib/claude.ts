@@ -260,6 +260,7 @@ export interface StockAnalysis {
   overallReasoning: string
   historicalAnalog: string
   hedgeBookNote: string | null
+  hedgeBookExposureType: 'commodity' | 'fx' | 'rates' | 'energy' | null
   epsSensitivity: string | null
   indicatorClassifications: Record<string, 'direct' | 'indirect' | 'macro_noise'>
   demandDrivenInSupplyShock: Record<string, boolean>
@@ -314,7 +315,12 @@ Set confidence based ONLY on data quality — sample size, correlation strength,
 REQUIRED FIELDS IN YOUR RESPONSE:
 - timeHorizon: "1 month", "1 quarter", or "1 year" — the time window your impact estimate applies to
 - historicalAnalog: cite ONE specific historical comparable event with approximate date range and what happened to this stock or comparable stocks during that period. If no strong analog exists, say so explicitly — do NOT omit this field.
-- hedgeBookNote: if the company is in consumer staples, food & beverage, airlines, or any sector directly exposed to a commodity input cost shock in this scenario, state whether the company hedges that input and for how long, based on your knowledge. Return null if not applicable.
+- hedgeBookNote: if the company has material exposure to any of the following, state whether and how long they hedge that exposure, based on your knowledge — return null only if none apply:
+  • Commodity inputs: coffee, oil, metals, agriculture, or other physical inputs (consumer staples, food & beverage, airlines, manufacturers)
+  • Foreign exchange: any company deriving >10% of revenue outside its home currency
+  • Interest rates: banks, insurers, REITs, or any capital-intensive firm with significant floating-rate debt
+  • Energy inputs: airlines, manufacturers, utilities, or any firm with large direct energy costs
+- hedgeBookExposureType: classify the PRIMARY exposure type that triggered the hedgeBookNote — "commodity", "fx", "rates", or "energy". Return null if hedgeBookNote is null.
 - epsSensitivity: if you have knowledge of it, state what a 10% move in the relevant commodity typically does to this company's EPS. Flag as approximate and not investment advice. Return null if unknown.
 - indicatorClassifications: for each indicator ticker (${indicatorTickers}), classify as "direct" (most causally linked to this scenario for this specific stock), "indirect" (related but not the primary driver), or "macro_noise" (broad market beta, not specifically relevant to this scenario)
 - demandDrivenInSupplyShock: for each indicator ticker, set true ONLY IF: (a) this indicator's historical correlation with this stock is demand-driven (both moved together due to shared demand) AND (b) the current macro scenario is primarily a supply shock. This flags cases where the historical correlation is misleading.
@@ -341,6 +347,7 @@ Return ONLY valid JSON:
   "overallReasoning": "<2-3 sentences synthesising all three dimensions>",
   "historicalAnalog": "<specific event, date range, and what happened to the stock>",
   "hedgeBookNote": "<hedge status and duration, or null>",
+  "hedgeBookExposureType": "<commodity|fx|rates|energy|null>",
   "epsSensitivity": "<EPS impact of 10% commodity move, approximate, not investment advice — or null>",
   "indicatorClassifications": {
     "<ticker>": "<direct|indirect|macro_noise>"
@@ -385,6 +392,7 @@ Return ONLY valid JSON:
     overallReasoning: string
     historicalAnalog: string
     hedgeBookNote: string | null
+    hedgeBookExposureType: 'commodity' | 'fx' | 'rates' | 'energy' | null
     epsSensitivity: string | null
     indicatorClassifications: Record<string, 'direct' | 'indirect' | 'macro_noise'>
     demandDrivenInSupplyShock: Record<string, boolean>
@@ -400,6 +408,7 @@ Return ONLY valid JSON:
       overallReasoning: 'Could not parse analysis.',
       historicalAnalog: 'Not available.',
       hedgeBookNote: null,
+      hedgeBookExposureType: null,
       epsSensitivity: null,
       indicatorClassifications: {},
       demandDrivenInSupplyShock: {},
@@ -416,6 +425,7 @@ Return ONLY valid JSON:
     overallReasoning: parsed.overallReasoning,
     historicalAnalog: parsed.historicalAnalog ?? 'No strong historical analog identified.',
     hedgeBookNote: parsed.hedgeBookNote ?? null,
+    hedgeBookExposureType: parsed.hedgeBookExposureType ?? null,
     epsSensitivity: parsed.epsSensitivity ?? null,
     indicatorClassifications: parsed.indicatorClassifications ?? {},
     demandDrivenInSupplyShock: parsed.demandDrivenInSupplyShock ?? {},

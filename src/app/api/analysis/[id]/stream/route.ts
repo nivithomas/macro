@@ -142,6 +142,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
               overallReasoning: stockAnalysis.overallReasoning,
               historicalAnalog: stockAnalysis.historicalAnalog,
               hedgeBookNote: stockAnalysis.hedgeBookNote ?? undefined,
+              hedgeBookExposureType: stockAnalysis.hedgeBookExposureType ?? undefined,
               epsSensitivity: stockAnalysis.epsSensitivity ?? undefined,
               ...(scoreOrNull === null ? {
                 error: 'Direction estimation failed — score unavailable',
