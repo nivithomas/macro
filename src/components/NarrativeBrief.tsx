@@ -24,25 +24,31 @@ function Bucket({
   label,
   items,
 }: {
-  tone: 'orange' | 'amber' | 'emerald'
+  tone: 'watch' | 'hedges' | 'upside'
   label: string
   items: string[]
 }) {
   const styles = {
-    orange:  { card: 'bg-orange-50 border-orange-100', label: 'text-orange-700' },
-    amber:   { card: 'bg-amber-50 border-amber-100',   label: 'text-amber-700' },
-    emerald: { card: 'bg-emerald-50 border-emerald-100', label: 'text-emerald-700' },
+    watch:  { card: 'bg-slate-50 border-slate-200', label: 'text-slate-600' },
+    hedges: { card: 'bg-blue-50 border-blue-200',   label: 'text-blue-700' },
+    upside: { card: 'bg-sky-50 border-sky-200',     label: 'text-sky-700' },
   }[tone]
+
+  if (items.length === 0) {
+    return (
+      <div className="border rounded-lg p-3 bg-zinc-50 border-zinc-200">
+        <div className="text-[10px] uppercase tracking-wider font-mono font-semibold text-zinc-400">{label}</div>
+        <div className="text-sm text-zinc-400 mt-1 italic">None identified</div>
+      </div>
+    )
+  }
+
   return (
     <div className={`border rounded-lg p-3 ${styles.card}`}>
-      <div className={`text-[10px] uppercase tracking-wider font-mono font-medium ${styles.label}`}>{label}</div>
-      {items.length > 0 ? (
-        <div className="text-sm font-mono font-semibold text-zinc-900 mt-1 leading-snug">
-          {items.join(', ')}
-        </div>
-      ) : (
-        <div className="text-sm text-zinc-400 mt-1 italic">None identified</div>
-      )}
+      <div className={`text-[10px] uppercase tracking-wider font-mono font-semibold ${styles.label}`}>{label}</div>
+      <div className="text-sm font-mono text-zinc-900 mt-1 leading-snug">
+        {items.join(', ')}
+      </div>
     </div>
   )
 }
@@ -113,9 +119,9 @@ export function NarrativeBrief({ macroTrend, brief }: NarrativeBriefProps) {
             {parseParagraph(brief.paragraph)}
           </p>
           <div className="grid grid-cols-3 gap-3 pt-1">
-            <Bucket tone="orange"  label="Watch closely"      items={brief.watchClosely} />
-            <Bucket tone="amber"   label="Hedges to consider" items={brief.hedges} />
-            <Bucket tone="emerald" label="Possible upside"    items={brief.upside} />
+            <Bucket tone="watch"  label="Watch closely"      items={brief.watchClosely} />
+            <Bucket tone="hedges" label="Hedges to consider" items={brief.hedges} />
+            <Bucket tone="upside" label="Possible upside"    items={brief.upside} />
           </div>
         </div>
 
