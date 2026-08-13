@@ -54,6 +54,29 @@ function corrTooltip(
   return parts.join(' ')
 }
 
+function directionTooltip(
+  ticker: string,
+  indicatorName: string,
+  directionEstimationRan: boolean,
+  entry: { direction: number; reasoning?: string } | undefined,
+): string {
+  if (!directionEstimationRan || entry === undefined) {
+    return `${ticker} (${indicatorName}): direction estimate unavailable — Claude did not estimate an expected move for this indicator.`
+  }
+  const { direction, reasoning } = entry
+  const moveText = direction > 0
+    ? `expected to rise given this macro scenario`
+    : direction < 0
+    ? `expected to fall given this macro scenario`
+    : `expected to be roughly flat given this macro scenario`
+  const parts = [
+    `${ticker} (${indicatorName}): ${moveText} (${direction > 0 ? '+' : ''}${direction.toFixed(1)} on a -1 to +1 scale).`,
+    `This is Claude's directional estimate for the indicator itself, independent of its historical correlation with any stock.`,
+  ]
+  if (reasoning) parts.push(reasoning)
+  return parts.join(' ')
+}
+
 function corrCellStyle(r: number): React.CSSProperties {
   const intensity = Math.min(Math.abs(r) / 0.7, 1)
   const alpha = intensity * 0.55 + 0.05
@@ -181,10 +204,10 @@ export function PortfolioSummary({ results, threshold = 0.2 }: PortfolioSummaryP
                     <div
                       className="font-mono font-semibold normal-case tracking-normal mt-0.5 cursor-help"
                       style={{ color: dirColor }}
-                      title={entry?.reasoning ?? undefined}
+                      title={directionTooltip(ticker, name, directionEstimationRan, entry)}
                     >
                       {dirLabel}
-                      {entry?.reasoning && <span className="ml-1 text-zinc-300 font-normal text-[10px]">ⓘ</span>}
+                      <span className="ml-1 text-zinc-300 font-normal text-[10px]">ⓘ</span>
                     </div>
                   </th>
                 )
