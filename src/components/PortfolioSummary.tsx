@@ -13,6 +13,47 @@ function scoreToColor(score: number): string {
   return `rgb(${mix(from[0], to[0])},${mix(from[1], to[1])},${mix(from[2], to[2])})`
 }
 
+function corrTooltip(
+  stockTicker: string,
+  indicatorName: string,
+  corr: import('@/lib/types').CorrelationResult | undefined,
+  threshold: number,
+): string {
+  if (!corr) return `No correlation data available for ${stockTicker} vs ${indicatorName}.`
+  const { correlation: r, dataPoints, indicatorClassification, correlationMismatchWarning, directionReasoning } = corr
+  const abs = Math.abs(r)
+  const strength = abs < 0.2 ? 'negligible' : abs < 0.4 ? 'weak' : abs < 0.6 ? 'moderate' : abs < 0.8 ? 'strong' : 'very strong'
+  const sign = r > 0 ? 'positive' : r < 0 ? 'negative' : 'zero'
+  const moveText = r > 0
+    ? `${stockTicker} has historically moved in the same direction as ${indicatorName}`
+    : r < 0
+    ? `${stockTicker} has historically moved in the opposite direction from ${indicatorName}`
+    : `${stockTicker} has shown no historical relationship with ${indicatorName}`
+  const meets = abs >= threshold
+
+  const parts = [
+    `${stockTicker} vs ${indicatorName}: r = ${r.toFixed(2)} (${strength} ${sign} correlation, weekly log returns, n=${dataPoints}).`,
+    `${moveText}.`,
+    meets
+      ? `Meets the |r| ≥ ${threshold.toFixed(2)} threshold for a signal worth examining.`
+      : `Below the |r| ≥ ${threshold.toFixed(2)} threshold — too weak to be a meaningful signal.`,
+  ]
+  if (indicatorClassification === 'direct') {
+    parts.push('Classified as a directly causally linked indicator (2x weight in the score).')
+  } else if (indicatorClassification === 'macro_noise') {
+    parts.push('Classified as macro noise / shared beta (0.5x weight in the score).')
+  } else if (indicatorClassification === 'indirect') {
+    parts.push('Classified as an indirect indicator.')
+  }
+  if (correlationMismatchWarning) {
+    parts.push('Warning: looks like a demand-driven correlation applied to a supply-shock scenario — weight discounted 50%.')
+  }
+  if (directionReasoning) {
+    parts.push(directionReasoning)
+  }
+  return parts.join(' ')
+}
+
 function corrCellStyle(r: number): React.CSSProperties {
   const intensity = Math.min(Math.abs(r) / 0.7, 1)
   const alpha = intensity * 0.55 + 0.05
@@ -176,15 +217,16 @@ export function PortfolioSummary({ results, threshold = 0.2 }: PortfolioSummaryP
                       </div>
                     )}
                   </td>
-                  {indicators.map(([ticker]) => {
+                  {indicators.map(([ticker, name]) => {
                     const corr = r.correlations.find((c) => c.indicatorTicker === ticker)
                     const val = corr?.correlation
                     const meetsThreshold = val !== undefined && Math.abs(val) >= threshold
                     return (
                       <td
                         key={ticker}
-                        className="px-3 py-2.5 border-b border-r border-zinc-100 last:border-r-0 text-center"
+                        className="px-3 py-2.5 border-b border-r border-zinc-100 last:border-r-0 text-center cursor-help"
                         style={meetsThreshold ? corrCellStyle(val!) : {}}
+                        title={corrTooltip(r.ticker, name, corr, threshold)}
                       >
                         {val !== undefined ? (
                           <span className={`font-mono ${meetsThreshold ? 'text-zinc-800' : 'text-zinc-300'}`}>
