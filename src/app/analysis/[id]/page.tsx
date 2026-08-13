@@ -314,11 +314,11 @@ export default function AnalysisPage({ params }: Props) {
       {results.length > 0 && (
         <div className="bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-3 text-xs text-zinc-500 flex flex-wrap gap-4 items-center">
           <span className="font-medium text-zinc-700 whitespace-nowrap">Impact score range:</span>
-          <span className="text-red-600 font-medium">−5 Strongly Bearish</span>
+          <span className="text-red-600 font-medium">−5 Drop significantly</span>
           <span className="text-zinc-400">·</span>
-          <span className="text-yellow-600 font-medium">0 Neutral</span>
+          <span className="text-yellow-600 font-medium">0 Little to no impact</span>
           <span className="text-zinc-400">·</span>
-          <span className="text-emerald-600 font-medium">+5 Strongly Bullish</span>
+          <span className="text-emerald-600 font-medium">+5 Rise significantly</span>
           <span className="text-zinc-400 ml-auto">Score = weighted Pearson r × expected indicator direction. Not investment advice.</span>
         </div>
       )}
