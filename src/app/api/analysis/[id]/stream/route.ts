@@ -42,6 +42,23 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
         controller.enqueue(encoder.encode(sseMessage(event)))
       }
 
+      // Vercel's proxy layer buffers the response until a minimum byte
+      // threshold is reached before it starts flushing chunks to the
+      // client — with no proxy in front of it locally, this only shows up
+      // in production. An initial padding comment forces an immediate
+      // flush; a periodic heartbeat keeps the connection flushing during
+      // any gaps between real events (e.g. while awaiting Yahoo Finance or
+      // Claude calls). SSE comment lines (`:` prefix) are ignored by
+      // EventSource clients.
+      controller.enqueue(encoder.encode(`: ${' '.repeat(2048)}\n\n`))
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(': heartbeat\n\n'))
+        } catch {
+          clearInterval(heartbeat)
+        }
+      }, 15000)
+
       try {
         await supabase.from('analysis').update({ status: 'running', updated_at: now() }).eq('id', id)
 
@@ -189,6 +206,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
           .eq('id', id)
         send({ type: 'error', message })
       } finally {
+        clearInterval(heartbeat)
         controller.close()
       }
     },
