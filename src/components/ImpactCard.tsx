@@ -28,11 +28,11 @@ export function ImpactBar({ score }: { score: number }) {
 }
 
 function directionalVerdict(score: number) {
-  if (score >= 3) return { label: 'Strongly Bullish', color: 'text-emerald-600' }
-  if (score >= 1) return { label: 'Bullish', color: 'text-emerald-600' }
-  if (score <= -3) return { label: 'Strongly Bearish', color: 'text-red-600' }
-  if (score <= -1) return { label: 'Bearish', color: 'text-red-600' }
-  return { label: 'Neutral', color: 'text-yellow-600' }
+  if (score >= 3) return { label: 'Stock price to rise significantly', color: 'text-emerald-600' }
+  if (score >= 1) return { label: 'Stock price to rise minimally', color: 'text-emerald-600' }
+  if (score <= -3) return { label: 'Stock price to drop significantly', color: 'text-red-600' }
+  if (score <= -1) return { label: 'Stock price to drop minimally', color: 'text-red-600' }
+  return { label: 'Little to no price impact expected', color: 'text-yellow-600' }
 }
 
 function qualitativeVerdict(result: StockResult) {
@@ -41,9 +41,9 @@ function qualitativeVerdict(result: StockResult) {
   // 'mixed' leans negative (0.5 weight) — mixed outcomes in a bearish context still carry directional signal
   const neg = dims.filter((d) => d === 'negative').length + dims.filter((d) => d === 'mixed').length * 0.5
   // 'negligible' and 'neutral' count as neither
-  if (pos > neg) return { label: 'Bullish', color: 'text-emerald-600' }
-  if (neg > pos) return { label: 'Bearish', color: 'text-red-600' }
-  return { label: 'Neutral', color: 'text-yellow-600' }
+  if (pos > neg) return { label: 'Stock price to rise', color: 'text-emerald-600' }
+  if (neg > pos) return { label: 'Stock price to drop', color: 'text-red-600' }
+  return { label: 'Little to no price impact expected', color: 'text-yellow-600' }
 }
 
 function confidenceBadge(c: string) {
