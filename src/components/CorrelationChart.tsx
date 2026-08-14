@@ -31,7 +31,7 @@ function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-lg border border-white/15 bg-zinc-900/95 backdrop-blur px-3 py-2 shadow-md">
-      <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-mono mb-1">
+      <div className="text-[10px] text-zinc-500 mb-1">
         {format(new Date(label as string), "MMM d, yyyy")}
       </div>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}

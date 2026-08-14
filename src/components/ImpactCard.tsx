@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { clsx } from 'clsx'
 import type { StockResult } from '@/lib/types'
-import { Badge } from './ui/Badge'
+import { buildStockVerdict } from '@/lib/stock-verdict'
 import { Card } from './ui/Card'
 import { CorrelationChart } from './CorrelationChart'
+import { sectionLabelMuted, sectionLabelTeal } from './ui/typography'
 
 interface ImpactCardProps {
   result: StockResult
@@ -27,29 +28,10 @@ export function ImpactBar({ score }: { score: number }) {
   )
 }
 
-function directionalVerdict(score: number) {
-  if (score >= 3) return { label: 'Stock price to rise significantly', color: 'text-emerald-600' }
-  if (score >= 1) return { label: 'Stock price to rise minimally', color: 'text-emerald-600' }
-  if (score <= -3) return { label: 'Stock price to drop significantly', color: 'text-red-600' }
-  if (score <= -1) return { label: 'Stock price to drop minimally', color: 'text-red-600' }
-  return { label: 'Little to no price impact expected', color: 'text-yellow-600' }
-}
-
-function qualitativeVerdict(result: StockResult) {
-  const dims = [result.historicalPatterns.impact, result.businessModel.impact, result.supplyChain.impact]
-  const pos = dims.filter((d) => d === 'positive').length
-  // 'mixed' leans negative (0.5 weight) — mixed outcomes in a bearish context still carry directional signal
-  const neg = dims.filter((d) => d === 'negative').length + dims.filter((d) => d === 'mixed').length * 0.5
-  // 'negligible' and 'neutral' count as neither
-  if (pos > neg) return { label: 'Stock price to rise', color: 'text-emerald-600' }
-  if (neg > pos) return { label: 'Stock price to drop', color: 'text-red-600' }
-  return { label: 'Little to no price impact expected', color: 'text-yellow-600' }
-}
-
-function confidenceBadge(c: string) {
-  if (c === 'high') return <Badge variant="green">High confidence</Badge>
-  if (c === 'medium') return <Badge variant="yellow">Medium confidence</Badge>
-  return <Badge variant="gray">Low confidence</Badge>
+interface VerdictDisplay {
+  headline: string
+  subline: string
+  color: string
 }
 
 function DimensionRow({
@@ -73,7 +55,7 @@ function DimensionRow({
         <span className={clsx('mt-1.5 w-2 h-2 rounded-full shrink-0', dotColor)} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">{label}</span>
+            <span className={sectionLabelMuted}>{label}</span>
             <span className="text-zinc-300 text-xs ml-2">{open ? '▲' : '▼'}</span>
           </div>
           <p className="text-sm text-zinc-700 mt-0.5 leading-snug">{dim.summary}</p>
@@ -93,11 +75,7 @@ export function ImpactCard({ result, threshold = 0.2 }: ImpactCardProps) {
   const [showCorr, setShowCorr] = useState(false)
   const scoreStr = result.impactScore > 0 ? `+${result.impactScore.toFixed(1)}` : result.impactScore.toFixed(1)
   const scoreColor = result.impactScore > 0 ? 'text-emerald-600' : result.impactScore < 0 ? 'text-orange-500' : 'text-yellow-500'
-  const verdict = result.confidence === 'low'
-    ? { label: 'Insufficient signal', color: 'text-zinc-500' }
-    : result.quantReliable
-      ? directionalVerdict(result.impactScore)
-      : qualitativeVerdict(result)
+  const verdict: VerdictDisplay = buildStockVerdict(result)
 
   return (
     <Card className={result.weakCausalLink ? 'opacity-75' : undefined}>
@@ -110,17 +88,13 @@ export function ImpactCard({ result, threshold = 0.2 }: ImpactCardProps) {
       )}
 
       {/* Header */}
-      <div className="px-5 py-4 flex items-center gap-4 flex-wrap border-b border-zinc-100">
-        <div className="flex items-baseline gap-2">
-          <span className="font-mono text-sm font-semibold text-emerald-700">{result.ticker}</span>
-          {result.timeHorizon && (
-            <Badge variant="blue">{result.timeHorizon}</Badge>
-          )}
-          <span className="text-sm text-zinc-500 truncate max-w-[200px]">{result.name}</span>
+      <div className="px-5 py-4 flex items-center gap-4 flex-wrap border-b border-zinc-200 bg-zinc-900">
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="text-sm font-semibold text-white shrink-0">{result.ticker}</span>
+          <span className="text-sm text-zinc-300 truncate max-w-[200px]">{result.name}</span>
         </div>
-        {result.sector && <span className="text-xs text-zinc-400 bg-zinc-100 rounded px-1.5 py-0.5">{result.sector}</span>}
+        {result.sector && <span className="text-xs text-zinc-300 bg-zinc-800 rounded px-1.5 py-0.5">{result.sector}</span>}
         <div className="ml-auto flex items-center gap-3 flex-wrap">
-          {confidenceBadge(result.confidence)}
           <div className="flex flex-col items-end gap-1">
             {result.quantReliable ? (
               <>
@@ -131,25 +105,26 @@ export function ImpactCard({ result, threshold = 0.2 }: ImpactCardProps) {
                 <span className="text-xs text-zinc-400">corr × direction · not investment advice</span>
               </>
             ) : (
-              <span className="inline-flex items-center gap-1.5 bg-zinc-100 text-zinc-600 text-[11px] px-2 py-0.5 rounded">
-                Qualitative · {result.confidence === 'high' ? 'High' : result.confidence === 'medium' ? 'Medium' : 'Low'} confidence
+              <span className="inline-flex items-center gap-1.5 bg-zinc-800 text-zinc-200 text-[11px] px-2 py-0.5 rounded">
+                Qualitative assessment
               </span>
             )}
           </div>
         </div>
       </div>
 
-      {/* Directional verdict — large, prominent, above reasoning */}
-      <div className="px-5 pt-4 pb-2 flex items-center gap-3">
-        <span className={clsx('text-xl font-bold', verdict.color)}>{verdict.label}</span>
+      {/* Directional verdict — plain language headline with timeline/confidence subline */}
+      <div className="px-5 pt-4 pb-2">
+        <p className={clsx('text-lg font-semibold leading-snug', verdict.color)}>{verdict.headline}</p>
+        <p className="text-sm font-normal text-zinc-500 mt-1 leading-snug">{verdict.subline}</p>
       </div>
 
       {/* Quant warning callout */}
       {!result.quantReliable && result.quantWarning && (
         <div className="mx-5 mb-3 rounded-lg bg-stone-50 border border-stone-200 px-3 py-3">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="font-mono text-[10px] text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-100">Note</span>
-            <p className="text-[11px] uppercase tracking-wider font-semibold text-zinc-600">Why no quant score?</p>
+            <span className="text-[10px] text-zinc-500 px-1.5 py-0.5 rounded bg-zinc-100">Note</span>
+            <p className={`${sectionLabelMuted}`}>Why no quant score?</p>
           </div>
           <p className="text-sm text-zinc-700 leading-relaxed">{result.quantWarning}</p>
         </div>
@@ -200,32 +175,36 @@ export function ImpactCard({ result, threshold = 0.2 }: ImpactCardProps) {
       {/* Historical analog */}
       {result.historicalAnalog && (
         <div className="border-t border-zinc-100 px-5 py-3">
-          <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">Historical Analog</p>
+          <p className={`${sectionLabelMuted} mb-1`}>Historical analog</p>
           <p className="text-sm text-zinc-600 leading-relaxed">{result.historicalAnalog}</p>
         </div>
       )}
 
       {/* Hedge book note */}
       {result.hedgeBookNote && (
-        <div className="border-t border-zinc-100 mx-5 my-3 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3">
-          <p className="text-xs font-medium text-blue-700 uppercase tracking-wider mb-0.5">Hedge Book</p>
-          <p className="text-xs text-blue-400 italic mb-2">
-            {result.hedgeBookExposureType === 'fx'
-              ? 'Shown because this stock has material foreign exchange exposure.'
-              : result.hedgeBookExposureType === 'rates'
-              ? 'Shown because this stock has material interest rate exposure.'
-              : result.hedgeBookExposureType === 'energy'
-              ? 'Shown because this stock has material energy input cost exposure.'
-              : 'Shown because this stock has direct commodity input cost exposure.'}
-          </p>
-          <p className="text-sm text-blue-700 leading-relaxed">{result.hedgeBookNote}</p>
+        <div className="border-t border-zinc-100 px-5 py-3">
+          <div className="rounded-lg p-4 bg-gradient-to-b from-cyan-50/70 to-teal-50/25 border border-cyan-200">
+            <p className={`${sectionLabelTeal} mb-1`}>
+              Hedge book
+            </p>
+            <p className="text-xs text-zinc-500 italic mb-2">
+              {result.hedgeBookExposureType === 'fx'
+                ? 'Shown because this stock has material foreign exchange exposure.'
+                : result.hedgeBookExposureType === 'rates'
+                ? 'Shown because this stock has material interest rate exposure.'
+                : result.hedgeBookExposureType === 'energy'
+                ? 'Shown because this stock has material energy input cost exposure.'
+                : 'Shown because this stock has direct commodity input cost exposure.'}
+            </p>
+            <p className="text-sm text-zinc-700 leading-relaxed">{result.hedgeBookNote}</p>
+          </div>
         </div>
       )}
 
       {/* EPS sensitivity */}
       {result.epsSensitivity && (
         <div className="border-t border-zinc-100 px-5 py-3">
-          <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">EPS Sensitivity</p>
+          <p className={`${sectionLabelMuted} mb-1`}>EPS sensitivity</p>
           <p className="text-sm text-zinc-600 leading-relaxed">{result.epsSensitivity}</p>
         </div>
       )}

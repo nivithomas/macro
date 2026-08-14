@@ -57,12 +57,34 @@ export interface StockResult {
   error?: string
 }
 
+export interface BriefBucketItem {
+  label: string  // ticker or short action (≤4 words)
+  reason: string // plain-English why it belongs in this bucket
+}
+
+/** Accepts legacy string[] brief buckets and { label, reason } objects. */
+export function normalizeBriefBucketItems(items: unknown): BriefBucketItem[] {
+  if (!Array.isArray(items)) return []
+  return items.flatMap((item) => {
+    if (typeof item === 'string' && item.trim()) {
+      return [{ label: item.trim(), reason: '' }]
+    }
+    if (item && typeof item === 'object' && 'label' in item) {
+      const label = String((item as { label: unknown }).label ?? '').trim()
+      if (!label) return []
+      const reason = String((item as { reason?: unknown }).reason ?? '').trim()
+      return [{ label, reason }]
+    }
+    return []
+  })
+}
+
 export interface AnalysisBrief {
   oneLineNet: string
   paragraph: string       // uses [TICKER] format for inline highlighting
-  watchClosely: string[]  // top bearish-exposed tickers
-  hedges: string[]        // hedging instruments or actions
-  upside: string[]        // potential beneficiaries
+  watchClosely: BriefBucketItem[]  // top bearish-exposed tickers
+  hedges: BriefBucketItem[]        // hedging instruments or actions
+  upside: BriefBucketItem[]        // potential beneficiaries
   questions: string[]     // 3 researchable follow-up questions
   avgConfidence: number   // 0–1
   tailRisk: string        // one-line worst-case caveat

@@ -241,10 +241,10 @@ export default function AnalysisPage({ params }: Props) {
               </div>
               {thinkingSnippet && (
                 <div className="border-t border-zinc-100 px-5 py-3 bg-zinc-50/60">
-                  <p className="text-[10px] text-zinc-400 uppercase tracking-wider font-medium mb-1.5">
+                  <p className="text-xs text-zinc-400 font-semibold mb-1.5">
                     Currently considering
                   </p>
-                  <p className="text-xs font-mono text-zinc-500 leading-relaxed line-clamp-5 break-words">
+                  <p className="text-xs text-zinc-500 leading-relaxed line-clamp-5 break-words">
                     {thinkingSnippet}
                     <span className="inline-block w-1.5 h-3 bg-zinc-400 ml-0.5 align-middle animate-pulse" />
                   </p>
@@ -285,7 +285,7 @@ export default function AnalysisPage({ params }: Props) {
       {/* Indicators */}
       {indicators.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Relevant market indicators</h3>
+          <h3 className="text-xs font-semibold text-zinc-500">Relevant market indicators</h3>
           <div className="flex flex-wrap gap-1.5">
             {indicators.map((ind, i) => (
               <span
@@ -310,47 +310,11 @@ export default function AnalysisPage({ params }: Props) {
         </div>
       )}
 
-      {/* Score legend — shown once results start arriving */}
-      {results.length > 0 && (
-        <div className="bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-3 text-xs text-zinc-500 flex flex-wrap gap-4 items-center">
-          <span className="font-medium text-zinc-700 whitespace-nowrap">Impact score range:</span>
-          <span className="text-red-600 font-medium">−5 Drop significantly</span>
-          <span className="text-zinc-400">·</span>
-          <span className="text-yellow-600 font-medium">0 Little to no impact</span>
-          <span className="text-zinc-400">·</span>
-          <span className="text-emerald-600 font-medium">+5 Rise significantly</span>
-          <span className="text-zinc-400 ml-auto">Score = weighted Pearson r × expected indicator direction. Not investment advice.</span>
-        </div>
-      )}
-
-      {/* Threshold slider */}
-      {results.length > 0 && (
-        <div className="space-y-1">
-          <div className="flex items-center gap-4 bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-3">
-            <label className="text-xs font-medium text-zinc-500 whitespace-nowrap">
-              Signal threshold — min |r|
-            </label>
-            <input
-              type="range"
-              min={0.1}
-              max={0.6}
-              step={0.05}
-              value={threshold}
-              onChange={(e) => setThreshold(parseFloat(e.target.value))}
-              className="flex-1 accent-emerald-600"
-            />
-            <span className="text-xs font-mono font-semibold text-emerald-700 w-8 text-right">{threshold.toFixed(2)}</span>
-          </div>
-          <p className="text-xs text-zinc-400 px-1">
-            Pearson |r| measures historical co-movement between 0 and 1. Higher = stronger historical relationship. 0.20 is a common minimum threshold for a signal worth examining.
-          </p>
-        </div>
-      )}
 
       {/* Narrative brief — shown when complete and at least one valid result */}
       {status === 'complete' && results.some((r) => !r.error) && (
         brief
-          ? <NarrativeBrief macroTrend={analysis?.macroTrend ?? ''} brief={brief} />
+          ? <NarrativeBrief macroTrend={analysis?.macroTrend ?? ''} brief={brief} results={results} duration={analysis?.duration ?? '1-3 months'} />
           : briefError
             ? <p className="text-xs text-zinc-600 italic">Could not generate summary.</p>
             : (
@@ -361,8 +325,32 @@ export default function AnalysisPage({ params }: Props) {
             )
       )}
 
-      {/* Portfolio exposure summary */}
-      {results.length > 0 && <PortfolioSummary results={results} threshold={threshold} />}
+      {/* Portfolio exposure + threshold (slider controls table highlighting and stock card correlations) */}
+      {results.length > 0 && (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-4 bg-zinc-50 border border-zinc-200 rounded-lg px-4 py-3">
+              <label className="text-xs font-medium text-zinc-500 whitespace-nowrap">
+                Signal threshold — min |r|
+              </label>
+              <input
+                type="range"
+                min={0.1}
+                max={0.6}
+                step={0.05}
+                value={threshold}
+                onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                className="flex-1 accent-emerald-600"
+              />
+              <span className="text-xs font-mono font-semibold text-emerald-700 w-8 text-right">{threshold.toFixed(2)}</span>
+            </div>
+            <p className="text-xs text-zinc-400 px-1">
+              Higher threshold = only stronger historical correlations (higher |r|) get highlighted in the table and emphasized in stock cards — fewer green/orange cells. Lower threshold = more weak links count as worth showing. Does not change impact scores.
+            </p>
+          </div>
+          <PortfolioSummary results={results} threshold={threshold} />
+        </div>
+      )}
 
       {/* Results */}
       {sortedResults.length > 0 && (
