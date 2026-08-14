@@ -362,18 +362,23 @@ Return ONLY valid JSON:
   if (onThinking) {
     const stream = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 2500,
+      max_tokens: 4096,
+      thinking: { type: 'adaptive', display: 'summarized' },
       stream: true,
       messages: [{ role: 'user', content: prompt }],
     })
+    let thinkingBuf = ''
     let lastEmitLen = 0
     for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        text += event.delta.text
-        if (text.length - lastEmitLen >= 200) {
-          onThinking(profile.ticker, text.slice(-300))
-          lastEmitLen = text.length
+      if (event.type !== 'content_block_delta') continue
+      if (event.delta.type === 'thinking_delta') {
+        thinkingBuf += event.delta.thinking
+        if (thinkingBuf.length - lastEmitLen >= 80) {
+          onThinking(profile.ticker, thinkingBuf.slice(-300))
+          lastEmitLen = thinkingBuf.length
         }
+      } else if (event.delta.type === 'text_delta') {
+        text += event.delta.text
       }
     }
   } else {

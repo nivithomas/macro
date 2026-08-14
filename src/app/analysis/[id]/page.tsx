@@ -310,6 +310,7 @@ export default function AnalysisPage({ params }: Props) {
         </div>
       )}
 
+
       {/* Narrative brief — shown when complete and at least one valid result */}
       {status === 'complete' && results.some((r) => !r.error) && (
         brief
