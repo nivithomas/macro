@@ -6,13 +6,48 @@ import type { CompanyProfile } from './yahoo-finance'
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 function extractJson<T>(text: string): T | null {
-  const match = text.match(/```(?:json)?\s*([\s\S]*?)```/) ?? text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/)
-  if (!match) return null
-  try {
-    return JSON.parse(match[1] ?? match[0]) as T
-  } catch {
-    return null
+  if (!text.trim()) return null
+
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fenced) {
+    try {
+      return JSON.parse(fenced[1].trim()) as T
+    } catch {
+      /* fall through */
+    }
   }
+
+  const start = text.indexOf('{')
+  if (start === -1) return null
+  let depth = 0
+  let inString = false
+  let escape = false
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+    if (inString) {
+      if (escape) escape = false
+      else if (ch === '\\') escape = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') inString = true
+    else if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) {
+        try {
+          return JSON.parse(text.slice(start, i + 1)) as T
+        } catch {
+          return null
+        }
+      }
+    }
+  }
+  return null
+}
+
+function textFromMessageContent(content: Anthropic.Messages.Message['content']): string {
+  return content.filter((b) => b.type === 'text').map((b) => b.text).join('')
 }
 
 // ---------------------------------------------------------------------------
@@ -268,6 +303,8 @@ export interface StockAnalysis {
   error?: string
 }
 
+type StockAnalysisPayload = Omit<StockAnalysis, 'error'>
+
 export async function analyzeStockImpact(
   macroTrend: string,
   duration: string,
@@ -362,8 +399,8 @@ Return ONLY valid JSON:
   if (onThinking) {
     const stream = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
-      thinking: { type: 'adaptive', display: 'summarized' },
+      max_tokens: 16384,
+      thinking: { type: 'enabled', budget_tokens: 8000, display: 'summarized' },
       stream: true,
       messages: [{ role: 'user', content: prompt }],
     })
@@ -384,27 +421,32 @@ Return ONLY valid JSON:
   } else {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 2500,
+      max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }],
     })
-    text = response.content[0].type === 'text' ? response.content[0].text : ''
+    text = textFromMessageContent(response.content)
   }
-  const parsed = extractJson<{
-    confidence: 'low' | 'medium' | 'high'
-    timeHorizon: string
-    historicalPatterns: DimensionAnalysis
-    businessModel: DimensionAnalysis
-    supplyChain: DimensionAnalysis
-    overallReasoning: string
-    historicalAnalog: string
-    hedgeBookNote: string | null
-    hedgeBookExposureType: 'commodity' | 'fx' | 'rates' | 'energy' | null
-    epsSensitivity: string | null
-    indicatorClassifications: Record<string, 'direct' | 'indirect' | 'macro_noise'>
-    demandDrivenInSupplyShock: Record<string, boolean>
-  }>(text)
+
+  let parsed = extractJson<StockAnalysisPayload>(text)
+
+  if (!parsed && onThinking) {
+    console.warn(
+      `[analyzeStockImpact] ${profile.ticker}: parse failed after streaming (text length ${text.length}), retrying without thinking`,
+    )
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }],
+    })
+    text = textFromMessageContent(response.content)
+    parsed = extractJson<StockAnalysisPayload>(text)
+  }
 
   if (!parsed) {
+    console.warn(
+      `[analyzeStockImpact] ${profile.ticker}: failed to parse JSON. Text preview:`,
+      text.slice(0, 500),
+    )
     return {
       confidence: 'low',
       timeHorizon: 'unknown',
