@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { Indicator, DimensionAnalysis, CorrelationResult, StockResult, AnalysisBrief } from './types'
+import { normalizeBriefBucketItems } from './types'
 import type { CompanyProfile } from './yahoo-finance'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -479,12 +480,21 @@ paragraph:
 - GOOD: "This portfolio leans bearish — Starbucks carries the most direct risk if Colombian supply dries up. A few names could quietly benefit from the shift."
 
 watchClosely / hedges / upside:
-- Each item MUST be ≤ 4 words. Ideally just a ticker or a short action.
-- Arrays of labels, NOT sentences.
-- BAD: ["SBUX faces significant downside risk from rising coffee input costs"]
-- GOOD: ["SBUX", "JDE", "DNUT"]
-- BAD: ["Consider going long Coffee Futures as a hedge against rising prices"]
-- GOOD: ["Long KC=F", "Short SBUX"]
+- Each bucket is an array of objects: { "label": "...", "reason": "..." }
+- label: portfolio stock ticker only for watchClosely and upside (e.g. "SBUX") — NEVER futures, ETFs, or macro indicators in those two buckets
+- hedges use "Long INSTRUMENT for TICKER" or "Short TICKER for TICKER" (≤8 words) — instruments belong here, not in watchClosely
+- reason: one plain-English line, ≤18 words — MUST explain WHY this item belongs in THIS bucket (not restating the label)
+- 1–3 items per bucket. Use only tickers from the stock results for watchClosely and upside.
+
+Bucket definitions:
+- watchClosely (possible downside): portfolio stocks with the most downside risk — holdings only, not hedges or futures
+- hedges: specific instruments or trades that could offset that risk
+- upside: portfolio stocks that may benefit from the same macro shift — holdings only
+
+- BAD: { "label": "SBUX", "reason": "Watch Starbucks" }
+- GOOD: { "label": "SBUX", "reason": "Coffee is a major input cost with thin near-term hedge cover" }
+- BAD: { "label": "Long KC=F", "reason": "A coffee hedge" }
+- GOOD: { "label": "Long KC=F", "reason": "Futures rise when arabica supply tightens" }
 
 questions:
 - Each question ≤ 15 words. Plain English. No citations, no brackets, no footnotes.
@@ -493,7 +503,12 @@ questions:
 - GOOD: "How much of Starbucks coffee comes from Colombia?"
 
 tailRisk:
-- One sentence, plain English, ≤ 20 words.
+- One sentence, plain English, ≤ 28 words. No finance jargon ("tail risk", "downside scenario", "hedge book exhaustion").
+- The base analysis already assumes shock duration: "${duration}". Answer: what if the shock lasts LONGER than that?
+- Focus on hedges and fixed-price contracts running out before the crisis ends, for the most exposed portfolio tickers. Name 1–2 tickers if helpful.
+- Use approximate wording ("typically hedges for ~9–12 months") — do NOT claim exact current hedge positions from filings.
+- BAD: "Tail risk remains elevated amid prolonged uncertainty."
+- GOOD: "If Colombian supply stays offline past three months, coffee hedges at SBUX and JDE may roll off before bean prices fall."
 
 FEW-SHOT EXAMPLES (match this style exactly):
 
@@ -501,49 +516,67 @@ Example 1 — coffee supply shock, bearish portfolio:
 {
   "oneLineNet": "Portfolio is net bearish on this scenario.",
   "paragraph": "A Colombian supply shock hits coffee-heavy names hard. A few diversified names may actually benefit if consumers trade down.",
-  "watchClosely": ["SBUX", "JDE", "DNUT"],
-  "hedges": ["Long KC=F", "Short SBUX"],
-  "upside": ["MCD", "KO"],
+  "watchClosely": [
+    { "label": "SBUX", "reason": "Coffee is a major input cost with thin near-term hedge cover" },
+    { "label": "JDE", "reason": "Packaged coffee margins compress quickly when bean prices spike" }
+  ],
+  "hedges": [
+    { "label": "Long KC=F for SBUX", "reason": "Futures rise when arabica supply tightens" },
+    { "label": "Short SBUX for SBUX", "reason": "Offsets direct café margin pressure in the portfolio" }
+  ],
+  "upside": [
+    { "label": "MCD", "reason": "Less coffee-driven than pure-play café chains" },
+    { "label": "KO", "reason": "Diversified beverages, limited arabica exposure" }
+  ],
   "questions": [
     "How much of Starbucks coffee comes from Colombia?",
     "Can roasters switch to Brazilian supply within six months?",
     "What happened to coffee stocks during the 2014 rust outbreak?"
   ],
   "avgConfidence": 0.75,
-  "tailRisk": "A prolonged shock beyond 12 months would overwhelm existing hedge books."
+  "tailRisk": "If the outage lasts past three months, coffee hedges at SBUX and JDE may expire before prices normalize."
 }
 
 Example 2 — Fed rate cut, mixed portfolio:
 {
   "oneLineNet": "Portfolio is modestly bullish if the Fed cuts.",
   "paragraph": "Rate-sensitive names stand to gain the most from a dovish pivot. Defensives may lag as risk appetite improves.",
-  "watchClosely": ["TLT", "XLF"],
-  "hedges": ["Long TLT", "Short USD"],
-  "upside": ["JPM", "BAC"],
+  "watchClosely": [
+    { "label": "TLT", "reason": "Long duration bonds rally when rate-cut odds rise" },
+    { "label": "XLF", "reason": "Banks face NIM pressure if cuts arrive too fast" }
+  ],
+  "hedges": [
+    { "label": "Long TLT for TLT", "reason": "Benefits if growth scare pushes yields lower" },
+    { "label": "Short USD for XLF", "reason": "Dollar often weakens on dovish Fed pivots" }
+  ],
+  "upside": [
+    { "label": "JPM", "reason": "Rate-sensitive earnings may rebound on easier policy" },
+    { "label": "BAC", "reason": "Loan growth could improve if cuts avoid recession" }
+  ],
   "questions": [
     "How quickly do bank net interest margins respond to rate cuts?",
     "Which holdings have the most duration sensitivity?",
     "Did financials outperform after the 2019 Fed pivot?"
   ],
   "avgConfidence": 0.62,
-  "tailRisk": "If inflation re-accelerates, the pivot could be short-lived."
+  "tailRisk": "If rate cuts arrive but inflation picks up again, the relief for banks could fade within a year."
 }
 
 Now write the brief for the actual analysis above. Return ONLY valid JSON:
 {
   "oneLineNet": "<one sentence, plain English>",
   "paragraph": "<2 sentences max, plain English, at most 1 ticker, no parentheticals>",
-  "watchClosely": ["<ticker or ≤4-word label>", ...],
-  "hedges": ["<≤4-word action>", ...],
-  "upside": ["<ticker or ≤4-word label>", ...],
+  "watchClosely": [{ "label": "<ticker>", "reason": "<≤18-word why>" }, ...],
+  "hedges": [{ "label": "Long INSTRUMENT for TICKER", "reason": "<≤18-word why>" }, ...],
+  "upside": [{ "label": "<ticker>", "reason": "<≤18-word why>" }, ...],
   "questions": ["<≤15-word question>", "<≤15-word question>", "<≤15-word question>"],
   "avgConfidence": ${avgConfidence},
-  "tailRisk": "<≤20-word sentence>"
+  "tailRisk": "<if shock lasts longer than ${duration}, what happens to hedges/contracts — plain English>"
 }`
 
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 900,
+    max_tokens: 1200,
     messages: [{ role: 'user', content: prompt }],
   })
   const text = response.content[0].type === 'text' ? response.content[0].text : ''
@@ -553,9 +586,9 @@ Now write the brief for the actual analysis above. Return ONLY valid JSON:
   return {
     oneLineNet:      parsed.oneLineNet ?? '',
     paragraph:       parsed.paragraph ?? '',
-    watchClosely:    Array.isArray(parsed.watchClosely) ? parsed.watchClosely : [],
-    hedges:          Array.isArray(parsed.hedges) ? parsed.hedges : [],
-    upside:          Array.isArray(parsed.upside) ? parsed.upside : [],
+    watchClosely:    normalizeBriefBucketItems(parsed.watchClosely),
+    hedges:          normalizeBriefBucketItems(parsed.hedges),
+    upside:          normalizeBriefBucketItems(parsed.upside),
     questions:       Array.isArray(parsed.questions) ? parsed.questions : [],
     avgConfidence:   typeof parsed.avgConfidence === 'number' ? parsed.avgConfidence : avgConfidence,
     tailRisk:        parsed.tailRisk ?? '',

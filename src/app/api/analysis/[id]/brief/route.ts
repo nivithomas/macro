@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { supabase, now, type DbAnalysis } from '@/lib/supabase'
 import { generateBrief } from '@/lib/claude'
 import type { StockResult, Indicator, AnalysisBrief } from '@/lib/types'
+import { normalizeBriefBucketItems } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +22,13 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
   // Return cached brief if already generated
   if (row.summary) {
-    return Response.json(JSON.parse(row.summary) as AnalysisBrief)
+    const cached = JSON.parse(row.summary) as AnalysisBrief
+    return Response.json({
+      ...cached,
+      watchClosely: normalizeBriefBucketItems(cached.watchClosely),
+      hedges: normalizeBriefBucketItems(cached.hedges),
+      upside: normalizeBriefBucketItems(cached.upside),
+    })
   }
 
   const results = row.results ? (JSON.parse(row.results) as StockResult[]) : []

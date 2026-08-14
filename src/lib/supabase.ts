@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { StockInfo, Indicator, StockResult, AnalysisBrief, AnalysisRecord, PortfolioRecord } from './types'
+import { normalizeBriefBucketItems } from './types'
 
 const supabaseUrl = process.env.SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -53,7 +54,17 @@ export function toAnalysisRecord(row: DbAnalysis): AnalysisRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     portfolioId: row.portfolio_id,
-    brief: row.summary ? (JSON.parse(row.summary) as AnalysisBrief) : null,
+    brief: row.summary
+      ? (() => {
+          const parsed = JSON.parse(row.summary) as AnalysisBrief
+          return {
+            ...parsed,
+            watchClosely: normalizeBriefBucketItems(parsed.watchClosely),
+            hedges: normalizeBriefBucketItems(parsed.hedges),
+            upside: normalizeBriefBucketItems(parsed.upside),
+          }
+        })()
+      : null,
   }
 }
 
